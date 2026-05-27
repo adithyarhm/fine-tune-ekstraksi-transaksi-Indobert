@@ -1,0 +1,46 @@
+# ============================================================
+# Training Configuration — IndoBERT Ekstraksi Transaksi
+# Hardware target: RTX 4080 SUPER (16 GB VRAM)
+# ============================================================
+
+model:
+  base_model: "indobenchmark/indobert-base-p2"
+  # Alternatif:
+  # base_model: "treamyracle/indobert-ner-gold"  # SOTA checkpoint, lebih cepat konvergen
+  # base_model: "xlm-roberta-base"               # fallback jika dataset kecil
+  dropout: 0.1
+  num_category_labels: 9    # makanan, transport, belanja, hiburan, kesehatan, pendidikan, tagihan, pemasukan, lainnya
+  num_type_labels: 2        # expense, income
+
+data:
+  train_file: "data/processed/train.json"
+  val_file:   "data/processed/val.json"
+  test_file:  "data/processed/test.json"
+  max_length: 128
+  train_val_test_split: [0.8, 0.1, 0.1]
+
+training:
+  output_dir: "outputs/"
+  num_train_epochs: 10
+  per_device_train_batch_size: 32   # RTX 4080 SUPER 16GB -> aman di 32
+  per_device_eval_batch_size: 64
+  gradient_accumulation_steps: 1    # naikkan ke 2-4 jika pakai xlm-roberta-large
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  lr_scheduler_type: "cosine"
+  fp16: true                        # mixed precision, hemat VRAM ~40%
+  bf16: false
+  save_strategy: "epoch"
+  evaluation_strategy: "epoch"
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+  logging_dir: "outputs/logs/"
+  logging_steps: 50
+  seed: 42
+
+loss:
+  lambda_ner:      1.0
+  lambda_category: 0.5
+  lambda_type:     0.3
