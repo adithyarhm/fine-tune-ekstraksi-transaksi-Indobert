@@ -13,9 +13,14 @@ pandas>=2.2.0
 tqdm>=4.66.0
 pyyaml>=6.0.1
 
+# ONNX export & optimization
+onnx>=1.16.0
+onnxruntime-gpu>=1.18.0    # GPU inference (CUDA); ganti onnxruntime jika CPU only
+optimum[onnxruntime]>=1.20.0   # HuggingFace Optimum untuk export terstruktur
+
 # Experiment tracking
 tensorboard>=2.16.0
-# wandb>=0.16.0  # uncomment jika pakai W&B
+# wandb>=0.16.0
 
 # Inference & serving
 fastapi>=0.111.0

@@ -1,8 +1,11 @@
 """
 Training Script — HuggingFace Trainer API
 ==========================================
+Setelah training selesai, otomatis export ke ONNX.
+
 Usage:
     python src/train.py --config configs/train_config.yaml
+    python src/train.py --config configs/train_config.yaml --skip_onnx
 """
 
 import sys
@@ -19,8 +22,6 @@ from model import JointTransactionModel
 
 
 class JointTrainer(Trainer):
-    """Custom Trainer: forward joint model dengan semua input."""
-
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
         outputs = model(
             input_ids=inputs["input_ids"],
@@ -35,7 +36,8 @@ class JointTrainer(Trainer):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/train_config.yaml")
+    parser.add_argument("--config",     default="configs/train_config.yaml")
+    parser.add_argument("--skip_onnx",  action="store_true", help="Skip ONNX export after training")
     args = parser.parse_args()
 
     with open(args.config) as f:
@@ -101,7 +103,29 @@ def main():
 
     best_path = os.path.join(t_cfg["output_dir"], "best_model")
     trainer.save_model(best_path)
-    print(f"[train] Saved -> {best_path}")
+    print(f"[train] PyTorch model saved -> {best_path}")
+
+    # Auto-export ke ONNX setelah training
+    if not args.skip_onnx:
+        print("\n[train] Exporting to ONNX...")
+        from export_onnx import export_onnx, validate_onnx, quantize_onnx, save_tokenizer, save_label_maps
+        from transformers import AutoTokenizer
+        import json
+
+        with open("data/processed/metadata.json") as f:
+            meta = json.load(f)
+
+        tokenizer  = AutoTokenizer.from_pretrained(meta["model_name"])
+        onnx_dir   = os.path.join(t_cfg["output_dir"], "onnx")
+
+        # Model ke CPU untuk export
+        model.to("cpu")
+        onnx_path, dummy_enc = export_onnx(model, tokenizer, onnx_dir)
+        validate_onnx(model, dummy_enc, onnx_path)
+        quantize_onnx(onnx_path, onnx_dir)
+        save_tokenizer(tokenizer, onnx_dir)
+        save_label_maps(onnx_dir)
+        print(f"[train] ONNX export done -> {onnx_dir}")
 
 
 if __name__ == "__main__":
